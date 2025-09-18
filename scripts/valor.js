@@ -1,5 +1,5 @@
 /**
- * VALOR API SCRIPTS v1.8.0
+ * VALOR API SCRIPTS v1.9.3-Neko1.2
  * 
  * INSTALLATION INSTRUCTIONS
  * 1. From campaign, go to API Scripts.
@@ -27,7 +27,8 @@ state.autoInitiativeReport = true;      // If a character's initiative changes d
 state.confirmAutoInitiative = true;     // Confirm whether or not to auto-update initiative before each scene.
 state.applyAttackResults = true;        // Allows GM to directly apply attack results with a chat button on a hit. (experimental)
 state.showAttackResults = true;         // Sends messages to the chat when attack results are applied. (experimental)
-
+state.sendDefenseButtons = true;        // Sends buttons players can click to automatically defend.
+state.groupDefenseButtons = true;       // If multiple tokens representing the same character are attacked, you roll them all at once.
 // Status Tracker
 // While this is active, the system will send an alert when an effect ends.
 function trackStatuses(turnOrder) {
@@ -119,9 +120,6 @@ function getSt(tokenId, charId) {
         // Get HP by character
         st = parseInt(getAttrByName(charId, 'hp'));
         stMax = parseInt(getAttrByName(charId, 'hp', 'max'));
-        log('B');
-        log(st);
-        log(stMax);
         if(st != st || stMax != stMax) {
             st = null;
             stMax = null;
@@ -433,7 +431,6 @@ function getTechs(charId) {
             } else {
                 techs.push({ id: techId, charId: rawTech.get('_characterid'), shieldType: shieldType});
             }
-            log(techs);
         } else if(techName.indexOf('custom_cost') > -1) {
             let customCost = parseInt(rawTech.get('current'));
             if(customCost != customCost) {
@@ -448,6 +445,48 @@ function getTechs(charId) {
     });
     
     return techs;
+}
+
+// Proficiencies Functions
+
+// Internal function - gets a list of proficiencies and their levels for a character ID.
+// Uses the Valor Character Sheet structure.
+function getProficiencies(charId) {
+    let rawProficiencies = filterObjs(function(obj) {
+        if(
+            obj.get('_type') == 'proficiency' &&
+            obj.get('_characterId') == charId &&
+            obj.get('name').intexOf('repeating_proficiencies') > -1
+        ) {
+            return true;
+        }
+        return false;
+    });
+
+    let proficiencies = [];
+
+    rawProficiencies.forEach(function(rawProficiency) {
+        let profName = rawSkill.get('name');
+        let profId = profName.split('_')[2];
+
+        if(profName.indexOf('profname') > -1 )
+        {
+            proficiencies.push({id: profId, name: rawProficiency.get('current'), level: level})
+        }
+
+    });
+
+    return proficiencies;
+}
+
+function getProficiency(charId, proficiencyName) {
+    let proficiencies = getProficiencies(charId);
+
+    if( proficiencies && proficiencies.length > 0 ) {
+        return proficiencies.find(s => s.name && s.name.toLowerCase() == proficiencyName.toLowerCase());
+    }
+
+    return null;
 }
 
 function resetValor(charId, skills, flaws) {
@@ -504,8 +543,9 @@ function resetValor(charId, skills, flaws) {
 // Resets all bonus fields for all characterse
 function resetBonuses() {
     let bonusList = ['rollbonus', 'atkrollbonus', 'defrollbonus',
-                     'patkbonus', 'eatkbonus', 'defensebonus', 'resistancebonus'];
-    bonusList.forEach(function(b) {
+                     'patkbonus', 'eatkbonus', 'defensebonus', 'resistancebonus',
+                     'pshield', 'eshield', 'vshield'];    
+        bonusList.forEach(function(b) {
         let bonuses = filterObjs(function(obj) {
             return obj.get('_type') == 'attribute' &&
                    obj.get('name') == b;
@@ -666,7 +706,7 @@ function getTechDescription(tech, charId, suppressDamageDisplay) {
             if(actorClass == 'flunky' || actorClass == 'soldier') shield = Math.ceil(shield / 2);
             switch(tech.shieldType) {
                 case 'energy':
-                    summary = `Grants physical shield with <span style="color:darkblue">**${shield}**</span> HP`;
+                    summary = `Grants energy shield with <span style="color:darkblue">**${shield}**</span> HP`;
                     break;
                 case 'versatile':
                     summary = `Grants versatile shield with <span style="color:darkblue">**${shield}**</span> HP`;
@@ -828,7 +868,8 @@ function getTechByName(techId, charId, suppressDamageDisplay) {
         }
         
         tech.summary = getTechDescription(tech, charId, suppressDamageDisplay);
-    
+        tech.rawName = tech.name;
+
         if((tech.core == 'mimic' || tech.core == 'ultMimic') && tech.mimicTarget && charId) {
             log('Mimic target: ' + tech.mimicTarget);
             
@@ -839,10 +880,12 @@ function getTechByName(techId, charId, suppressDamageDisplay) {
             let resoluteStrike = tech.resoluteStrike;
             let oldId = tech.id;
             let mimicTech = tech;
+            let rawName = tech.rawName;
             tech = getTechByName(tech.mimicTarget, null, suppressDamageDisplay);
             if(tech) {
                 tech.name = mimicTech.name + ' [' + tech.name + ']';
-        
+                tech.rawName = rawName;
+
                 // Revise core level
                 tech.coreLevel = mimicTech.coreLevel - (tech.techLevel - tech.coreLevel);
                 
@@ -1735,6 +1778,17 @@ on('chat:message', function(msg) {
             return;
         }
         
+        // Check for Self Limit.
+        let selfLimit = tech.limits ? tech.limits.find(function(l) {
+            let name = l.toLowerCase();
+            return (name.indexOf('self') == 0);
+        }) : null;
+
+        if(selfLimit) {
+            // Add yourself to target list
+            targetsList.push(token);
+        }
+
         // Check for Overload Limits
         if(tech.overloadLimits) {
             overrideLimits = true;
@@ -1972,6 +2026,7 @@ on('chat:message', function(msg) {
         let rollStat = tech.stat;
         let rollText = '';
         let hiddenRollText = '';
+        let defenseButtons = [];
         let targets = 1;
         
         if(tech.core == 'damage' ||
@@ -2199,7 +2254,6 @@ on('chat:message', function(msg) {
                             rollText += ', Reposition ' + distance;
                         }
                     }
-                    
                 } else {
                     rollText += (firstTarget ? ' ' : ', ') + targetName;
                     firstTarget = false;
@@ -2244,15 +2298,14 @@ on('chat:message', function(msg) {
                 if(state.applyAttackResults) {
                     let applyCommand = `!tech-apply ${target.get('_id')}`;
                     let effectPhrase = ''
-                    if(tech.hasFlaws) {
+                    if(tech.hasFlaws || tech.hasSkills) {
                         // Check temporary limit
                         let temporaryLimit = tech.limits ? tech.limits.find(function(l) {
                             let name = l.toLowerCase();
                             return (name.indexOf('temporary') == 0);
                         }) : null;
                         
-                        effectPhrase = ` -e &quot;${tech.name}&quot; ${temporaryLimit ? 2 : 3}`;
-                    }
+                        effectPhrase = ` -e &quot;${escape(tech.name)}&quot; ${temporaryLimit ? 2 : 3}`;                    }
                     
                     if(tech.core == 'damage' || tech.core == 'ultDamage') {
                         if(!hiddenFullList) {
@@ -2278,6 +2331,7 @@ on('chat:message', function(msg) {
                         }
                         // Create the Crit button
                         finalDamage = Math.max(0, critDamage - defRes);
+                        damagePhrase = `${finalDamage} ${damageType}`;
                         if(finalDamage > 0) {
                             hiddenRollText += ` <a href="${applyCommand} -d ${damagePhrase}${effectPhrase}" style="padding:3px">Crit</a>`;
                         }
@@ -2286,8 +2340,48 @@ on('chat:message', function(msg) {
                         if(finalDamage > 0) {
                             hiddenRollText += ` <a href="${applyCommand} -d ${finalDamage} none" style="padding:3px">DI</a>`;
                         }
-                        log(hiddenRollText)
                     }
+                    else if(tech.core == 'weaken' || tech.core == 'boost') 
+                    {
+                        hiddenRollText += ` <a href="${applyCommand} ${effectPhrase}" style="padding:3px">Apply</a>`;
+                    }
+                }
+
+                if(state.sendDefenseButtons && (tech.core == 'damage' || tech.core == 'ultDamage' || tech.core == 'weaken')) {
+                    // Get target's active attributes
+                    let highest = 0;
+                    const targetMuscle = getAttrByName(targetCharId, 'mus');
+                    if(targetMuscle > highest) highest = targetMuscle;
+                    const targetDexterity = getAttrByName(targetCharId, 'dex');
+                    if(targetDexterity > highest) highest = targetDexterity;
+                    const targetAura = getAttrByName(targetCharId, 'aur');
+                    if(targetAura > highest) highest = targetAura;
+                    const targetIntuition = getAttrByName(targetCharId, 'int');
+                    if(targetIntuition > highest) highest = targetIntuition;
+                    const targetResolve = getAttrByName(targetCharId, 'res');
+                    if(targetResolve > highest) highest = targetResolve;
+
+                    let text = 'Defend:'
+                    if(targetMuscle == highest) {
+                        text += ` <a href="!d-roll ${actorId} ${targetCharId} ${tech.name} mus">Muscle</a>`;
+                    }
+                    if(targetDexterity == highest) {
+                        text += ` <a href="!d-roll ${actorId} ${targetCharId} ${tech.name} dex">Dexterity</a>`;
+                    }
+                    if(targetAura == highest) {
+                        text += ` <a href="!d-roll ${actorId} ${targetCharId} ${tech.name} aur">Aura</a>`;
+                    }
+                    if(targetIntuition == highest) {
+                        text += ` <a href="!d-roll ${actorId} ${targetCharId} ${tech.name} int">Intuition</a>`;
+                    }
+                    if(targetResolve == highest) {
+                        const valor = getAttrByName(targetCharId, 'valor');
+                        if(valor >= 2) {
+                            text += ` <a href="!d-roll ${actorId} ${targetCharId} ${tech.name} res">Resolve</a>`;
+                        }
+                    }
+
+                    defenseButtons.push({name: targetName, text: text});
                 }
             });
         } else if(rollStat && rollStat != 'none') {
@@ -2572,13 +2666,23 @@ on('chat:message', function(msg) {
                     if(currentShield < shieldPower) {
                         let shieldAttrs = filterObjs(function(obj) {
                             return obj.get('_type') == 'attribute' &&
-                                   obj.get('name') == shieldAttribute;
+                                obj.get('name') == shieldAttribute &&
+                                obj.get('_characterid') == charId;
                         });
+                        
                         if(shieldAttrs && shieldAttrs.length > 0) {
                             let shield = shieldAttrs[0];
                             if(shield) {
                                 shield.set('current', shieldValue);
                             }
+                        }
+                        else 
+                        {
+                            createObj('attribute', {
+                                name: shieldAttribute,
+                                current: shieldValue,
+                                characterid: charId
+                            });
                         }
                     }
                 });
@@ -2662,6 +2766,14 @@ on('chat:message', function(msg) {
         if(hiddenRollText && hiddenRollText.length > 0) {
             sendChat('Valor', '/w gm ' + hiddenRollText);
         }
+
+        if(state.sendDefenseButtons) {
+            defenseButtons.forEach(function(button) {
+                sendChat('Valor', `/w "${button.name}" ${button.text}`);
+            });
+        }
+
+
         
         // Disable temporary switches on this tech
         if(tech.digDeep) {
@@ -2846,7 +2958,12 @@ on('chat:message', function(msg) {
     if(msg.type == 'api' && msg.content.indexOf('!tech-apply') == 0) {
         startEvent('!tech-apply');
         // Get params
-        let split = msg.content.match(/(".*?")|(\S+)/g);
+        let split = [];
+        const regex = new RegExp('&.+?&|[^ ]+', 'g');
+        msg.content.match(regex).forEach(e => {
+            split.push(e.replace(/&/g, ''));
+        });
+        
         if(split.length < 2) {
             log('Not enough arguments.');
             return;
@@ -2854,7 +2971,8 @@ on('chat:message', function(msg) {
         
         const tokenId = split[1];
         const token = getObj('graphic', tokenId);
-        const actor = getObj('character', token.get('represents'));
+        const actorId = token.get('represents');
+        const actor = getObj('character', actorId);
         
         let damage = 0;
         let damageType = 'physical';
@@ -2872,7 +2990,7 @@ on('chat:message', function(msg) {
                     break;
                 case '-e':
                     // Apply is creating an effect
-                    effect.name = split[paramId + 1];
+                    effect.name = unescape(split[paramId + 1]);
                     if(effect.name && effect.name[0] == '"') 
                         effect.name = effect.name.substring(1, effect.name.length - 1);
                     effect.duration = split[paramId + 2];
@@ -2891,6 +3009,7 @@ on('chat:message', function(msg) {
                 // Check shield values
                 let shieldAttrs = filterObjs(function(obj) {
                     return obj.get('_type') == 'attribute' &&
+                           obj.get('_characterid') == actorId &&
                            obj.get('name').indexOf('shield') == 1;
                 });
                 
@@ -2909,7 +3028,7 @@ on('chat:message', function(msg) {
                 }
             }
             
-            if(shield.get('current') > 0) {
+            if(shield && shield.get('current') > 0) {
                 if(damage > shield.get('current')) {
                     damage -= shield.get('current');
                     shieldDamage = shield.get('current');
@@ -2923,6 +3042,7 @@ on('chat:message', function(msg) {
             if(shieldDamage > 0) {
                 let shieldAttrs = filterObjs(function(obj) {
                     return obj.get('_type') == 'attribute' &&
+                           obj.get('_characterid') == actorId &&
                            obj.get('name') == shield.get('name');
                 });
 
@@ -2958,7 +3078,7 @@ on('chat:message', function(msg) {
                     messages.push(`${tokenName} took ${damage} damage.`);
                 }
                 if(effect.name && effect.result) {
-                    messages.push(`${tokenName} gained a new weaken effect.`);
+                    messages.push(`${tokenName} gained a new effect.`); 
                 }
                 
                 sendChat('Valor', messages.join('<br />'));
@@ -4174,10 +4294,91 @@ on('chat:message', function(msg) {
             label = label.substring(1, label.length - 1);
         }
         
-        log(`Sending message as ${'character|' + as}: [[${roll}]]`);
         sendChat('character|' + as, '[[' + roll + ']] ' + label);
     }
 });
+
+// !d-roll command
+// Performs a specific roll as a specific character.
+// Meant to be used by the character sheet, not the user.
+on('chat:message', function(msg) {
+    if(msg.type == 'api' && msg.content.indexOf('!d-roll') == 0) {
+        let split = [];
+        const regex = new RegExp('&.+?&|[^ ]+', 'g');
+        msg.content.match(regex).forEach(e => {
+            split.push(e.replace(/&/g, ''));
+        });
+
+        if(split.length < 3) {
+            log('!d-roll: Not enough arguments.');
+        }
+
+        let attackerId = split[1];
+        let defenderId = split[2];
+        let techName = unescape(split[3]);
+        let attribute = split[4];
+        let count = split.length > 5 ? parseInt(split[5]) : 1;
+
+        let attributeName = '';
+        let primaryName = '';
+        switch(attribute) {
+            case 'mus': 
+                attributeName = 'Muscle';
+                primaryName = 'str';
+                break;
+            case 'dex': 
+                attributeName = 'Dexterity';
+                primaryName = 'agi';
+                break;
+            case 'aur': 
+                attributeName = 'Aura';
+                primaryName = 'spr';
+                break;
+            case 'int': 
+                attributeName = 'Intuition';
+                primaryName = 'mnd';
+                break;
+            case 'res': 
+                attributeName = 'Resolve';
+                primaryName = 'gut';
+                break;
+        }
+
+        if(techName[0] == '"') {
+            techName = techName.substring(1, techName.length - 1);
+        }
+
+        const techs = getTechs(attackerId);
+        const tech = techs.find(t => t.name == techName);
+
+        const attributeValue = getAttrByName(defenderId, attribute);
+        const rollBonus = getAttrByName(defenderId, 'rollbonus');
+        const defRollBonus = getAttrByName(defenderId, 'defrollbonus');
+
+        if(primaryName != tech.stat) {
+            log(`!d-roll: Substituting ${attribute} for ${tech.stat}`);
+
+            switch(attribute) {
+                case 'aur':
+                    // Chip stamina
+                    var level = getAttrByName(attackerId, 'level');
+                    var attackerSeason = Math.ceil(level / 5);
+                    updateValueForCharacter(defenderId, 'st', attackerSeason * -2, false, false);
+                    break;
+            }
+        }
+
+        let roll = '';
+        for(let i = 0; i < count; i++) {
+            roll += `[[1d10+${attributeValue}+${rollBonus}+${defRollBonus}]] `;
+        }
+        roll += `${attributeName} Defense`;
+
+        sendChat('character|' + defenderId, roll);
+    }
+});
+
+
 
 // Max Value sync function
 // Makes HP and ST move in sync with their max values.
@@ -4374,6 +4575,8 @@ function processOngoingEffects(turnOrder) {
         }
     }
     
+    lastCharId = lastChar.get('_id')
+
     // Update HP or ST
     let parts = effectChar.custom.split(' ');
     let value = parseInt(parts[1]);

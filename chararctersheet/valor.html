@@ -1,10 +1,11 @@
 <script type="text/worker">
-
     /**
-     * VALOR CHARACTER SHEET v1.8.0-Neko1
+     * VALOR CHARACTER SHEET v1.9.3-Neko1.2
      *
      * Differences from Mainline:
-     * - Implements Basic Attack pseudo-limit for a house rule 
+     * - Implements Basic Attack "Limit" for house rule use (sets Stamina cost to 0) 
+     * - Implements Free Technique Modifier, which hard-sets the TP Cost to 0 (but changes nothing else)
+     * - Implements Proficiencies Tab, an implementation of the Challenge Skills tab from Valor: Tools of the Trade, including all Challenge skills.
      * 
      * Installation Instructions:
      * - Be a Roll20 Pro user.
@@ -147,8 +148,7 @@
         { cost: 5,  levelUp: 0, speed: 0, id: 'spiritSight', namePattern: '^spirit sight', description: "While active, you can see invisible and concealed targets, and can always tell clones from the original." },
         { cost: 5,  levelUp: 2, speed: 1, id: 'toss', namePattern: '^toss', description: "Move an ally in your Zone of Control up to 4 spaces." },
         { cost: 6,  levelUp: 0, speed: 0, rollStats: ['int'], id: 'battleAnalysis', namePattern: '^battle analysis', description: "On success, may choose once later to gain +5 to a defense roll against the target's attacks." },
-        { cost: 6,  levelUp: 0, speed: 1, id: 'clone', namePattern: '^clone$', description: "Create a clone, who can use techniques in your place. If it's attacked, the clone is destroyed." },
-        { cost: 4,  levelUp: 0, speed: 0, rollStats: ['int', 'aur'], id: 'effectCapture', namePattern: '^effect capture', description: "On success, take control of a Boost, Weaken, Attack Node, Portal, Refraction Point, or Persistent effect." },
+        { cost: 6,  levelUp: 3, speed: 1, id: 'clone', namePattern: '^clone$', description: "Create a clone, who can use techniques in your place. If it's attacked, the clone is destroyed." },        { cost: 4,  levelUp: 0, speed: 0, rollStats: ['int', 'aur'], id: 'effectCapture', namePattern: '^effect capture', description: "On success, take control of a Boost, Weaken, Attack Node, Portal, Refraction Point, or Persistent effect." },
         { cost: 4,  levelUp: 0, speed: 0, id: 'healthTransference', namePattern: '^health transfer', description: "Lose a Health Increment; target ally within 5 spaces gains a Health Increment." },
         { cost: 6,  levelUp: 3, speed: 2, id: 'portal', namePattern: '^portal$', description: "Create a portal within 5 spaces; all spaces containing portals are adjacent." },
         { cost: 4,  levelUp: 2, speed: 2, id: 'refractionPoint', namePattern: '^refraction point', description: "Create a Refraction Point within 5 spaces; if a technique hits it, you can target the technique again originating from that point." },
@@ -280,6 +280,60 @@
         { cost: 0, levelUp: 3, id: 'ultTransform' },
         { cost: 0, levelUp: 3, id: 'ultMimic' },
         { cost: 3, levelUp: 3, id: 'domain' }
+    ];
+
+    // Speed 0 = Max Level is 1, i.e. not a skill that levels. (Fixed)
+    // Speed 1 = Max Level equal to Season. (Slow)
+    // Speed 2 = Max Level equal to 1/3rd of level round up. (Fast)
+    // Speed 3 = Max Level equal to 100, i.e. basically unlimited. (Custom proficiency)
+    let proficiencyLibrary = [
+        { cost: 1, levelUp: 1, speed: 3, id: 'customProficiency',
+            namePattern: '^custom Proficiency'
+        },
+        { cost: 2, levelUp: 2, speed: 1, id: 'generalProficiency',
+            namePattern: '^general Proficiency',
+            description: "+(Level) to all rolls for a Challenge Action category."
+        },
+        { cost: 1, levelUp: 1, speed: 1, id: 'specializedProficiency',
+            namePattern: '^specialized Proficiency',
+            description: "+(Level) to all rolls for a specific Challenge Action."
+        },
+        { cost: 1, levelUp: 1, speed: 1, id: 'asset',
+            namePattern: '^asset',
+            description: "(ASSETNAME): +3 to one check per Challenge Scene where applicable, once per level."
+        },
+        { cost: 1, levelUp: 0, speed: 0, id: 'basicLanguage',
+            namePattern: '^basic Language',
+            description: "You have basic proficiency with a language - critical questions and answers."
+        },
+        { cost: 2, levelUp: 0, speed: 0, id: 'conversationalLanguage',
+            namePattern: '^conversational Language',
+            description: "You have reasonable proficiency with a language - basic conversations and communication."
+        },
+        { cost: 3, levelUp: 0, speed: 0, id: 'fluentLanguage',
+            namePattern: '^fluent Language',
+            description: "You are fluent with a language - comparable to native speaker."
+        },
+        { cost: 4, levelUp: 0, speed: 0, id: 'masterLanguage',
+            namePattern: '^mastered Language',
+            description: "You have mastered a language - specialized vocabulary, structures, and idiosyncracies."
+        },
+        { cost: 3, levelUp: 0, speed: 0, id: 'challengeTechnique',
+            namePattern: '^challenge Technique',
+            description: "+3 to one check for (SELECTED ACTION) per Challenge Scene."
+        },
+        { cost: 3, levelUp: 0, speed: 0, id: 'favorableInsight',
+            namePattern: '^favorable Insight',
+            description: "When the selected Challenge category is relevant, Int or Res opposed by Int or Res to gain information on advantageous tactics."
+        },
+        { cost: 3, levelUp: 0, speed: 0, id: 'recovery',
+            namePattern: '^recovery',
+            description: "Spend 1 Valor to cancel the effect of action (specified category)."
+        },
+        { cost: 4, levelUp: 0, speed: 0, id: 'favorableSuccess',
+            namePattern: '^favorable Success',
+            description: "When you (favorably) move one Meter 2+ points, also move another meter 1 point."
+        }
     ];
 
     function calculateBaseAttributes() {
@@ -1277,6 +1331,90 @@
         });
     }
 
+    function calculateProficiencies() {
+        log('VALOR - Recalculating Proficiencies');
+        getAttrs(['level', 'type'], function(values) {
+            var level = parseInt(values.level);
+            var maxPP = 4 + 2 * level;
+            var unspentPP = maxPP;
+            var proficiencyInvestment = 0;
+
+            // Other vars TBD
+            // TODO: Add a Proficiency Investment skill to Skills; scan for it and add proficiencyInvestment here.
+
+            maxPP += proficiencyInvestment;
+            unspentPP += proficiencyInvestment;
+
+            var proficiencyFieldNames = [];
+            getSectionIDs('repeating_proficiencies', function(idarray) {
+                log('VALOR - beginning Proficiency Calculations loop. idarray Length: ' + idarray.length);
+                for (var i=0; i < idarray.length; i++) {
+                    proficiencyFieldNames.push('repeating_proficiencies_' + idarray[i] + '_profname');
+                    proficiencyFieldNames.push('repeating_proficiencies_' + idarray[i] + '_proflevel');
+                }
+                log('VALOR - Proficiency Field Names Length:' + proficiencyFieldNames.length);
+                getAttrs(proficiencyFieldNames, function(proficiencyValues) {
+                    var profPP = 0;
+                    for (var i = 0; i < idarray.length; i++) {
+                        var warning = ' ';
+                        var profName = proficiencyValues['repeating_proficiencies_' + idarray[i] + '_profname'];
+                        if(!profName) { 
+                            profName = 'customProficiency'; 
+                        }
+                        var profLevel = 1;
+                        if (proficiencyValues['repeating_proficiencies_' + idarray[i] + '_proflevel']) {
+                            profLevel = parseInt(proficiencyValues['repeating_proficiencies_' + idarray[i] + '_proflevel']);
+                        }
+
+                        var proficiency = proficiencyLibrary.find(function(p) {
+                            return p.id == profName;
+                        });
+
+                        if(proficiency) {
+                            var profMaxLevel = 1;
+                            switch(proficiency.speed) {
+                                case 1:
+                                    profMaxLevel = Math.ceil(level / 5);
+                                    break;
+                                case 2:
+                                    profMaxLevel = Math.ceil(level / 3);
+                                    break;
+                                case 3:
+                                    profMaxLevel = 100; // Custom or Unlimited
+                                    break;
+                            }
+
+                            if (profLevel > profMaxLevel) {
+                                warning = 'Warning: Level cap for this Proficiency is ' + profMaxLevel + '.';
+                            }
+
+                            var profAttrs = {};
+                            profAttrs['repeating_proficiencies_' + idarray[i] + '_warning'] = warning;
+                            setAttrs(profAttrs, {silent: true});
+                            
+                            var proficiencyCost = proficiency.cost + ((profLevel - 1) * proficiency.levelUp);
+
+                            unspentPP -= proficiencyCost;
+
+                            log('VALOR - Proficiency Name: ' + profName + ' - Cost: ' + 
+                                proficiencyCost + ' - remaining PP: ' + unspentPP
+                            );
+                        }
+                    } // End for loop; proficiency costs calculated, warnings applied.
+
+                    log('VALOR - completed Proficiency Calculations loop, PP is ' + unspentPP + ' / ' + maxPP);
+                    // Set attributes
+                    setAttrs({
+                        unspentProficiencyPoints: unspentPP,
+                        maxProficiencyPoints: maxPP
+                    });
+                });
+            });
+        });
+
+
+    }
+
     function calculateTP() {
         log('VALOR - Recalculating Unspent TP');
         getAttrs(['level', 'type'], function(values) {
@@ -1360,6 +1498,7 @@
                             techFieldNames.push('repeating_techs_' + tidarray[i] + '_tech_core_level');
                             techFieldNames.push('repeating_techs_' + tidarray[i] + '_tech_mod_level');
                             techFieldNames.push('repeating_techs_' + tidarray[i] + '_tech_core');
+                            techFieldNames.push('repeating_techs_' + tidarray[i] + '_tech_mods');
                         }
 
                         getAttrs(techFieldNames, function(techValues) {
@@ -1391,6 +1530,10 @@
                                 if(techValues['repeating_techs_' + tidarray[i] + '_tech_mod_level']) {
                                     techModsLevel = parseInt(techValues['repeating_techs_' + tidarray[i] + '_tech_mod_level']);
                                 }
+                                let isFree = false;
+                                if(techValues['repeating_techs_' + tidarray[i] + '_tech_mods'].toLowerCase().includes("free technique")) {
+                                    isFree = true;
+                                }
 
                                 let spentTP = techModsLevel + techCoreLevel;
 
@@ -1404,6 +1547,11 @@
                                     // Use the next Ult to offset the TP cost
                                     spentTP -= ults[0];
                                     ults.splice(0,1);
+                                }
+
+                                if(isFree == true) {
+                                    log('Free Technique Detected!');
+                                    spentTP = 0;
                                 }
 
                                 if(spentTP > 0) {
@@ -1479,6 +1627,7 @@
             if(techBonus) {
                  techCommand += ' +@{tech_bonus}';
             }
+
             if(techTargets > 0 && hasTargets) {
                 techCommand += ' --targets'
                 for(let j = 0; j < techTargets; j++) {
@@ -1584,8 +1733,9 @@
             let action = 'Attack';
             if(techCore == 'barrier' || techCore == 'boost' ||
                techCore == 'healing' || techCore == 'weaken' ||
-               techCore == 'shield' || techCore == 'ultTransform') {
-                action  = 'Support';
+               techCore == 'shield' || techCore == 'ultTransform' ||
+               techCore == 'domain') {
+            action  = 'Support';
             }
             if(techMods.indexOf('rush') > -1 || techMods.indexOf('ramming') > -1) {
                 action += '+Move';
@@ -1744,6 +1894,7 @@
                     }
                     shield += 12 + 4 * techCoreLevel;
                     if(techValues.type == 'flunky' || techValues.type == 'soldier') shield = Math.ceil(shield / 2);
+                    
                     switch(techShieldType) {
                         case 'energy':
                             summary += `Grants the target an energy shield with ${shield} HP.`;
@@ -1836,6 +1987,7 @@
             // Display mods
             let totalModLevel = 0;
             let mods = techMods.split('\n');
+            let isFree = false;
             mods.forEach(function(mod) {
                 // Try to get the level
                 let split = mod.split(' ');
@@ -2224,7 +2376,10 @@
                 } else if(mod.indexOf('touch of mal') == 0) {
                     summary += "Whenever you hit a target with a Damage or Weaken tech in this form, they gain 1 Malevolence. ";
                     totalModLevel += 6;
-                } else if(mod.indexOf('continuous r') == 0) {
+                } else if(mod.indexOf('free technique') == 0) {
+                    summary += "Technique TP Cost set to 0.";
+                } 
+                else if(mod.indexOf('continuous r') == 0) {
                     // Add nothing, already explained in core description
                 } else if(mod.length > 0) {
                     warnings.push(`Unrecognized Modifier '${mod}'.`);
@@ -2250,6 +2405,7 @@
             let limitSummary = '';
             let limitSt = 0;
             let limits = techLimits.split('\n');
+            let isBasic = false;
             limits.forEach(function(limit) {
                 // Try to get the level
                 let split = limit.split(' ');
@@ -2471,6 +2627,9 @@
                 } else if(limit.indexOf('water') == 0) {
                     limitSummary += "Can only be used underwater. ";
                     limitSt += 3;
+                } else if(limit.indexOf('basic attack') == 0) {
+                    //limitSummary += "This is a Basic Attack.";
+                    isBasic = true;
                 } else if(limit.length > 0 &&
                           limit.indexOf('slow') == -1 &&
                           limit.indexOf('grant') == -1) {
@@ -2482,14 +2641,23 @@
             if((core || techCore == 'custom') && techCore != 'mimic' && techCore != 'ultMimic') {
                 if(techCore == 'custom') {
                     cost = techCustomCost;
-                } else {
+                } else if (isBasic == true) {
+                    cost = 0;
+                } 
+                else {
                     cost = core.cost + core.levelUp * (techCoreLevel + totalModLevel) - limitSt;
                 }
                 if(cost < 0) {
                     cost = 0;
                 }
 
-                summary += 'Costs ' + cost + ' Stamina. '
+                if (isBasic == true) {
+                    summary += 'This is a Basic Attack, costing 0 Stamina.';
+                }
+                else { 
+                    summary += 'Costs ' + cost + ' Stamina. ';
+                }
+                
             }
             summary += limitSummary;
 
@@ -2707,6 +2875,55 @@
             setAttrs(attrs, { silent: true });
         });
     }
+
+    function calculateProficiency(profId) {
+        log('VALOR - Recalculating Proficiency ID ' + profId);
+
+        let proficiencyFieldNames = [];
+        proficiencyFieldNames.push(`repeating_proficiencies_${profId}_profname`);
+
+        getAttrs(proficiencyFieldNames, function(proficiencyValues) {
+            let profName = proficiencyValues[`repeating_proficiencies_${profId}_profname`];
+            let proficiency = proficiencyLibrary.find(function(s) {
+                return s.id = profName;
+            });
+
+            let attrs = [];
+            if(proficiency.description) {
+                attrs[`repeating_proficiencies_${profId}_profnotes`] = proficiency.description;
+            }
+
+            setAttrs(attrs, {silent: true});
+        });
+    }
+
+    // Fix any null shield values    
+ 
+
+    function calculateShields(skillId) {
+ 
+        log('VALOR - Recalculating Shields');
+
+        let fieldNames = ['pshield', 'eshield', 'vshield'];
+
+        getAttrs(fieldNames, function(fieldValues) {
+            var pshield = fieldValues['pshield'];
+            var eshield = fieldValues['eshield'];
+            var vshield = fieldValues['vshield'];
+ 
+            if(!pshield) pshield = 0
+            if(!eshield) eshield = 0
+            if(!vshield) vshield = 0
+ 
+            setAttrs({
+                pshield: pshield,
+                eshield: eshield,
+                vshield: vshield,
+            }, { silent: true });
+        });
+    }
+
+    // BEGIN Event Handlers
     
     on("clicked:repeating_skills:useskill", function(eventInfo) {
         // Check the current value of the hidden attribute.
@@ -2786,6 +3003,29 @@
         });
     });
 
+    on("clicked:repeating_proficiencies:useprof", function(eventInfo) 
+    {
+        // Check the current value of the hidden attribute.
+        const rowid = eventInfo.sourceAttribute.split('_')[2];
+        getAttrs([`repeating_proficiencies_${rowid}_profname`,
+                  `repeating_proficiencies_${rowid}_profnlevel`,
+                  `repeating_proficiencies_${rowid}_profnotes`,
+                  'mus', 'dex', 'aur', 'int', 'res'],
+        function(v) {
+            let profName = v[`repeating_proficiencies_${rowid}_profname`];
+            let prof = proficiencyLibrary.find(function(p) {
+                return p.id = profName;
+            });
+            
+            let summary = v[`repeating_proficiencies_${rowid}_profnotes`];
+
+            let command = `&{template:proficiency} {{name=${getDisplayName(profName)}}} {{summary=${summary}}}`;
+            startRoll(command, function(result) {
+                finishRoll(result.rollId);
+            });
+        });
+    });
+
     on('change:level change:str change:agi change:spr change:mnd change:gut', function() {
         calculateBaseAttributes();
     });
@@ -2835,6 +3075,11 @@
         calculateFlawsAndSkills();
     });
 
+    on('change:level change:type change:repeating_proficiencies remove:repeating_proficiencies ', 
+            function() {
+        calculateProficiencies();
+    });
+
     on('change:type change:repeating_skills remove:repeating_skills', function() {
         calculateBonuses();
     });
@@ -2874,6 +3119,12 @@
         calculateFlaw(flawId);
     });
 
+    on('change:repeating_proficiencies:profname', function(eventInfo) {
+        //log('VALOR - Change to Proficiency Name, new name: ' + eventInfo.sourceAttribute.substring(24, 44));
+        var profId = eventInfo.sourceAttribute.substring(24, 44);
+        calculateProficiency(profId);
+    });
+
     on('sheet:opened', function() {
         // Update attributes
         calculateBaseAttributes();
@@ -2887,8 +3138,10 @@
         calculateDamageIncrement();
         calculateInitiative();
         calculateFlawsAndSkills();
+        calculateProficiencies();
         calculateBonuses();
         calculateTP();
+        calculateShields();
 
         // Update techs
         getSectionIDs('repeating_techs', function(tidarray) {
@@ -2902,9 +3155,10 @@
 
 <div class="sheet-container">
     <!-- Tabs -->
-    <input type="radio" name="attr_tab" class="sheet-tab sheet-tab1" value="1" checked="checked"><span title="Attributes"></span>
-    <input type="radio" name="attr_tab" class="sheet-tab sheet-tab2" value="2"><span title="Skills & Flaws"></span>
-    <input type="radio" name="attr_tab" class="sheet-tab sheet-tab3" value="3"><span title="Techniques"></span>
+    <input type="radio" name="attr_tab" class="sheet-tab sheet-tab1" value="1" checked="checked"/><span title="Attributes"></span>
+    <input type="radio" name="attr_tab" class="sheet-tab sheet-tab2" value="2"/><span title="Skills & Flaws"></span>
+    <input type="radio" name="attr_tab" class="sheet-tab sheet-tab3" value="3"/><span title="Techniques"></span>
+    <input type="radio" name="attr_tab" class="sheet-tab sheet-tab4" value="4"/><span title="Proficiencies"></span>
 
     <div class="sheet-tab-content sheet-tab1">
         <!-- Sheet header -->
@@ -3637,11 +3891,50 @@
         <div class="unspent-tp"><span name="attr_unspentTP"></span> TP UNSPENT</div>
     </div>
 
+    <div class="sheet-tab-content sheet-tab4">
+        <div class="proficiencies-header">PROFICIENCIES</div>
+
+        <fieldset class="repeating_proficiencies">
+            <div class="proficiency">
+                <div class="proficiency-upper">
+                    <select class="proficiency-picker" name="attr_profname" selected="customProficiency">
+                        <option value="customProficiency">Custom Proficiency</option>
+                        <option value="generalProficiency">General Proficiency (2/2, Slow)</option>
+                        <option value="specializedProficiency">Specialized Proficiency (1/1, Slow)</option>
+                        <option value="asset">Asset (1/1, Slow)</option>
+                        <option value="basicLanguage">Basic Language (1)</option>
+                        <option value="conversationalLanguage">Conversational Language (2)</option>
+                        <option value="fluentLanguage">Fluent Language (3)</option>
+                        <option value="masterLanguage">Mastered Language (4)</option>
+                        <option value="challengeTechnique">Challenge Technique (3)</option>
+                        <option value="favorableInsight">Favorable Insight (3)</option>
+                        <option value="recovery">Recovery (3)</option>
+                        <option value="favorableSuccess">Favorable Success (4)</option>
+                    </select>
+
+                    <span class="label">Level</span>
+                    <input class="proficiency-level" type="number" name="attr_proflevel" value="1"/>
+                    <span name="attr_warning"></span>
+                    <button class="prof-button" type="action" name="act_useprof">Use</button>
+                </div>
+                <span class="label">Notes</span> 
+                <input class="notes" type="text" name="attr_profnotes" />
+            </div>
+            <div class="proficiency-background"> </div>
+        </fieldset>
+
+        <div class="unspent-pp">
+            <span name="attr_unspentProficiencyPoints"> </span> /  
+            <span name="attr_maxProficiencyPoints"> </span>
+            CHALLENGE POINTS UNSPENT
+        </div>
+    </div>
+
 </div>
 
 <br />
 
-<div>
+<div> <!-- Level Up Sheet Section -->
     <input type="checkbox" class="conditional-check" name="attr_is_duplicate">
     <div class="tech-block conditional-block">
         <button type='roll' value='!d-finalize @{character_id}' name='roll_resolve'>Finalize Level-up</button>
@@ -3690,6 +3983,25 @@
 </rolltemplate>
 
 <rolltemplate class="sheet-rolltemplate-flaw">
+    <div class="outer">
+        <div class="header">
+            {{name}}
+        </div>
+        {{#roll}}
+        <br />
+        <div class="roll">
+            {{roll}}
+        </div>
+        {{/roll}}
+        {{#summary}}
+        <div>
+            {{summary}}
+        </div>
+        {{/summary}}
+    </div>
+</rolltemplate>
+
+<rolltemplate class="sheet-rolltemplate-proficiency">
     <div class="outer">
         <div class="header">
             {{name}}

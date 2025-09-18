@@ -203,3 +203,38 @@ v1.8.0 (11/30/2024):
 - New: Shields automatically reduce incoming damage.
 - New: Buttons to display/roll Skills/Flaws.
 - New: Skill/Flaw notes are automatically populated.
+
+v1.8.1-Neko1 (3/29/2025):
+- New: Added "Basic Attack" 'Limit', which sets Stamina cost for a technique to 0.
+- New: Added "Free Technique" 'Modifier', which sets Technique Point cost for a technique to 0 (think temporary weapon pickups).
+
+v1.9.0 (6/26/2025):
+- Bugfix: Shields didn't work in various ways.
+- New: Apply button usable for boosts and weakens.
+- New: Automated defense roll buttons.
+
+v1.9.0-Neko1 (6/28/2025)
+- Implements all changes from master branch 1.9.0
+- New: Proficiencies Tab, implementing the Challenge Points variant from Valor: Tools of the Trade's drafts.
+- New: Proficiencies options "Custom Proficiency", "General Proficiency", "Specialized Proficiency", and "Basic/Conversational/Fluent/Mastered Language".
+
+v1.9.1 (7/1/2025):
+- Bugfix: Defense buttons now work for techniques with long names.
+- Bugfix: Defense buttons now work for mimic techs.
+- Bugfix: Defense buttons now honor defense roll bonuses.
+- Bugfix: Shields are now reset at the start of a scene.
+
+v1.9.2 (7/9/2025):
+- Changed: Only show one set of defense buttons when multiple of the same character are attacked
+- Bugfix: Apply Effect button now works with longer technique names
+- New: Option to roll multiple times for group defense buttons
+
+v1.9.3 (7/16/2025):
+- Bugfix: Using Aura to guard against Spirit Techniques no longer costs Stamina.
+- Bugfix: Domain techs now list the correct action.
+
+v1.9.3-Neko2 (9/16/2025):
+- Fix: Corrected README.md to be consistent with mainline, that is, not telling you about removed functions.
+- New: Proficiencies options "Challenge Technique", "Favorable Insight", "Recovery", and "Favorable Success".
+- New: "Use" button on Proficiency functions.
+- Known Issue: Sometimes, the proficiency calculations will falsely assume a base cost 1 and levelup cost 1 regardless of the actual level.
