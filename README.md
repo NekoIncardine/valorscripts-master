@@ -5,9 +5,7 @@ This is a slightly modified version of the Valor Scripts developed by Quinn Gord
 To wit:
 - It implements a "Basic Attack" limit, which zeroes out the Stamina cost. It's intended for a Basic Attacks houserule derived from Valor Alter (also by Quinn Gordon).
 - It implements a "Free Technique" modifier, which zeroes out the Technique Point cost. It's intended for things like picking weapons up off the floor, akin to the Valor Fighting Game rules.
-
-Future objectives in scope include:
-- Extending the sheet with a dedicated page for Challenge Points from Tools of the Trade
+- It implements the "Proficiencies" tab, a dedicated tab for handling the Challenge Points variant from Tools of the Trade.
 
 # Valor Script Repository
 
