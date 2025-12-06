@@ -5,7 +5,19 @@ This is a slightly modified version of the Valor Scripts developed by Quinn Gord
 To wit:
 - It implements a "Basic Attack" limit, which zeroes out the Stamina cost. It's intended for a Basic Attacks houserule derived from Valor Alter (also by Quinn Gordon).
 - It implements a "Free Technique" modifier, which zeroes out the Technique Point cost. It's intended for things like picking weapons up off the floor, akin to the Valor Fighting Game rules.
-- It implements the "Proficiencies" tab, a dedicated tab for handling the Challenge Points variant from Tools of the Trade.
+- It implements many updates from Tools of the Trade's draft ( https://valorousgames.itch.io/tools-of-the-trade ), including: 
+-- A dedicated Challenge Points tab (as "Proficiencies")
+-- The Skill, Modifier, and Limit Updates from chapter 2.
+
+### Known Issues
+- Does not implement Tools of the Trade's rules for Aura Strike, Dextrous Strike, etc. which make the attack mod swap optional.
+- Proficiencies Tab 'use' buttons don't yet do anything (I've gotta work out how I'm implementing picking the relevant Active Attribute).
+
+### Next Up
+- Implement Focused Summoner as an alternate character type
+- Begin implementing the new Tools of the Trade skills, cores, and modifiers
+
+All text below is from the original Readme.
 
 # Valor Script Repository
 

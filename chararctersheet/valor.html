@@ -1,11 +1,12 @@
 <script type="text/worker">
     /**
-     * VALOR CHARACTER SHEET v1.9.3-Neko1.2
+     * VALOR CHARACTER SHEET v1.9.3-Neko3
      *
      * Differences from Mainline:
      * - Implements Basic Attack "Limit" for house rule use (sets Stamina cost to 0) 
      * - Implements Free Technique Modifier, which hard-sets the TP Cost to 0 (but changes nothing else)
      * - Implements Proficiencies Tab, an implementation of the Challenge Skills tab from Valor: Tools of the Trade, including all Challenge skills.
+     * - Implements many (BUT NOT ALL) Tools of the Trade skill options and updates.
      * 
      * Installation Instructions:
      * - Be a Roll20 Pro user.
@@ -106,14 +107,14 @@
         { cost: 6,  levelUp: 0, speed: 0, id: 'overloadLimits', namePattern: '^overload limit', description: "Can ignore limits by paying full Stamina cost." },
         { cost: 4,  levelUp: 0, speed: 0, id: 'passiveHealing', namePattern: '^passive heal', description: "Can forego a Stamina Increment when recovering to heal someone else by a Health Increment." },
         { cost: 5,  levelUp: 0, speed: 0, id: 'protector', namePattern: '^protector', description: "When you Cover a specific character, +1 Valor." },
-        { cost: 3,  levelUp: 0, speed: 0, id: 'quickToAct', namePattern: '^quick to act', description: "+3 to Initiative rolls." },
+        { cost: 3,  levelUp: 2, speed: 2, id: 'quickToAct', namePattern: '^quick to act', description: "+Level+1 to Initiative rolls." },
         { cost: 5,  levelUp: 3, speed: 1, id: 'recklessAttack', namePattern: '^reckless', description: "Can increase attack rolls, but take a penalty to defense rolls." },
         { cost: 5,  levelUp: 0, speed: 0, id: 'resoluteStrike', namePattern: '^resolute strike', description: "If Valor is at least 2, can roll with Resolve when attacking." },
         { cost: 5,  levelUp: 0, speed: 0, id: 'revenge', namePattern: '^revenge', description: "The first time an ally falls in a scene, +2 Valor." },
         { cost: 4,  levelUp: 0, speed: 0, id: 'rollingRecovery', namePattern: '^rolling recover', description: "If you stand from prone with a Move Action, you can move at half speed." },
         { cost: 5,  levelUp: 0, speed: 0, id: 'teamTactics', namePattern: '^team tactic', description: "+1 to attack rolls if you and an ally are adjacent to the target, but not each other." },
         { cost: 4,  levelUp: 2, speed: 1, id: 'unmovable', namePattern: '^unmovable', description: "Reduces distance of repositions." },
-        { cost: 5,  levelUp: 0, speed: 0, id: 'abundantCreation', namePattern: '^abundant creat', description: "Can create an extra Attack Node, Portal, or Refraction Point with each action." },
+        { cost: 5,  levelUp: 3, speed: 1, id: 'abundantCreation', namePattern: '^abundant creat', description: "Can create an extra Attack Node, Portal, Refraction Point, or Hook Point per level with each action." },
         { cost: 5,  levelUp: 0, speed: 0, id: 'cloneTactics', namePattern: '^clone tactic', description: "+1 to attack rolls if you and a clone are both within range of the target." },
         { cost: 4,  levelUp: 0, speed: 0, id: 'combatToss', namePattern: '^combat toss', description: "If you Toss someone, they get +1 to their next attack roll." },
         { cost: 4,  levelUp: 0, speed: 0, id: 'daredevil', namePattern: '^daredevil', description: "When critical, +1 valor each time you successfully defend against an attack." },
@@ -137,7 +138,7 @@
         { cost: 5,  levelUp: 0, speed: 0, id: 'dirtyTrick', namePattern: '^dirty trick', description: "Make a target Surprised, but lose 2 Valor." },
         { cost: 2,  levelUp: 0, speed: 0, id: 'duel', namePattern: '^duel', description: "Challenge someone to a duel. On success, both gain 2 Valor, and anyone who interferes loses 4 Valor." },
         { cost: 4,  levelUp: 3, speed: 1, rollStats: ['int'], id: 'effectTransfer', namePattern: '^effect transfer', description: "Move an Attack Node, Portal, Refraction Node, or Persistent Effect." },
-        { cost: 6,  levelUp: 0, speed: 0, rollStats: ['dex', 'int'], id: 'feint', namePattern: '^feint', description: "On success, next attack against target deals increased damage." },
+        { cost: 6,  levelUp: 3, speed: 1, rollStats: ['dex', 'int'], id: 'feint', namePattern: '^feint', description: "On success, next attack against up to Level targets deals increased damage." },
         { cost: 5,  levelUp: 0, speed: 0, id: 'inspire', namePattern: '^inspire', description: "Grant 1 Valor to a target who doesn't have more Valor than you." }, // ERRATA: Fixed level on Inspire
         { cost: 5,  levelUp: 3, speed: 1, rollStats: ['aur', 'res'], id: 'intimidate', namePattern: '^intimidate', description: "On success, target is Shaken." },
         { cost: 4,  levelUp: 0, speed: 0, id: 'jump', namePattern: '^jump', description: "Become Flying for the rest of the turn." },
@@ -155,7 +156,7 @@
         { cost: 6,  levelUp: 3, speed: 1, rollStats: ['mus', 'dex', 'int', 'aur', 'res'], id: 'seal', namePattern: '^seal$', description: "On success, disable an enemy's Techniques or Active Skills for 3 rounds." },
         { cost: 6,  levelUp: 0, speed: 0, id: 'shadowMeld', namePattern: '^shadow( )?meld', description: "You can hide in plain sight while in darkness." },
         { cost: 4,  levelUp: 0, speed: 0, id: 'staminaTransference', namePattern: '^stamina transfer', description: "Lose a Stamina increment; target ally within 5 spaces gains a Stamina Increment." },
-        { cost: 5,  levelUp: 2, speed: 1, id: 'swiftStep', namePattern: '^swift step', description: "Move as a Support Action, or extend the distance of a Move." },
+        { cost: 4,  levelUp: 1, speed: 2, id: 'swiftStep', namePattern: '^swift step', description: "Move as a Support Action, or extend the distance of a Move." },
         { cost: 4,  levelUp: 0, speed: 0, id: 'attackNodeNetwork', namePattern: '^attack node network', description: "+1 to attack rolls if you and an attack node are both in range of the target." },
         { cost: 6,  levelUp: 0, speed: 0, rollStats: ['int'], id: 'exploitWeakness', namePattern: '^exploit weakness', description: "On success, may choose once later to gain +5 to an attack roll against the target." },
         { cost: 5,  levelUp: 0, speed: 0, rollStats: ['int', 'aur', 'res'], id: 'flunkyDomination', namePattern: '^flunky domination', description: "On success, dictate an Attack Action for a flunky within 5 spaces to take." },
@@ -168,7 +169,7 @@
         { cost: 5,  levelUp: 0, speed: 0, id: 'ignoreEffect', namePattern: '^ignore effect', description: "While Valor is at least 2, you can use Resolve against all Active Skills." },
         { cost: 3,  levelUp: 2, speed: 1, id: 'interruptAttack', namePattern: '^interrupt attack', description: "When an enemy leaves your Zone of Control, you can use a stored attack as a reaction, reducing their Move." },
         { cost: 4,  levelUp: 0, speed: 0, id: 'afterimage', namePattern: '^after( )?image', description: "When you Swift Step, you can leave a Clone behind, or stand still and create a Clone where you would have moved." },
-        { cost: 4,  levelUp: 0, speed: 0, id: 'areaShield', namePattern: '^area shield', description: "When defending with Aura against a Line or Blast attack, you can defend in place of allies within your Zone of Control." },
+        { cost: 4,  levelUp: 0, speed: 0, id: 'areaShield', namePattern: '^area shield', description: "When defending with Aura against a Line or Blast attack, you can defend in place of allies within your Zone of Control, optionally applying your Resistance in place of theirs." },
         { cost: 3,  levelUp: 0, speed: 0, id: 'clash', namePattern: '^clash$', description: "When attacked, use a stored attack as a reaction against the attacker; whichever attack roll is higher hits, and the other is negated." },
         { cost: 5,  levelUp: 0, speed: 0, id: 'damageFeedback', namePattern: '^damage feedback', description: "When defending against melee attacks with Muscle, deal damage to the attacker." },
         { cost: 5,  levelUp: 2, speed: 1, id: 'divingEscape', namePattern: '^diving escape', description: "When defending against Line or Blast attacks with Dexterity, move towards a safe space." },
@@ -192,10 +193,10 @@
         { cost: 6,  levelUp: 3, speed: 1, id: 'hardenedResistance', namePattern: '^hardened res', description: "Overdrive for increased Resolve for the rest of the scene." },
         { cost: 5,  levelUp: 0, speed: 0, id: 'resoluteAura', namePattern: '^resolute aura', description: "Overdrive for +1 Aura for the rest of the scene." },
         { cost: 5,  levelUp: 0, speed: 0, id: 'strengthOfWill', namePattern: '^strength of will', description: "Overdrive for +1 Muscle for the rest of the scene." },
-        { cost: 3,  levelUp: 0, speed: 0, id: 'asset', namePattern: '^asset', description: "Once per Challenge Scene, use an asset to gain +3 to a roll." },
-        { cost: 3,  levelUp: 0, speed: 0, id: 'challengeTechnique', namePattern: '^challenge tech', description: "Once per Challenge Scene, use a challenge technique to gain +3 to a roll." },
+        { cost: 1,  levelUp: 1, speed: 1, id: 'asset', namePattern: '^asset', description: "Level times per Challenge Scene, use an asset to gain +3 to a roll." },
+        { cost: 1,  levelUp: 1, speed: 0, id: 'challengeTechnique', namePattern: '^challenge tech', description: "Level times per Challenge Scene, use a challenge technique to gain +3 to a roll." },
         { cost: 3,  levelUp: 0, speed: 0, id: 'favorableInsight', namePattern: '^favo(u)?rable insight', description: "Can make an opposed roll to gain insight into the structure of a Challenge Scene." },
-        { cost: 2,  levelUp: 0, speed: 0, id: 'proficiency', namePattern: '^proficiency', description: "+1 to rolls when using a specific Challenge Action." },
+        { cost: 2,  levelUp: 1, speed: 1, id: 'proficiency', namePattern: '^proficiency', description: "+Level+1 to rolls when using a specific Challenge Action." },
         { cost: 3,  levelUp: 0, speed: 0, id: 'recovery', namePattern: '^recovery', description: "When you fail with a specific Challenge Action and it would move a meter, you can spend 1 Valor to prevent it." },
         { cost: 4,  levelUp: 0, speed: 0, id: 'favorableSuccess', namePattern: '^favorable success', description: "When you move a meter by 2 or more points, you can move another meter by 1 point." },
         { cost: 6,  levelUp: 4, speed: 1, id: 'companion', namePattern: '^companion$', description: "You have a Companion who can use techniques in your place. If it takes damage, it's temporarily disabled." },
@@ -290,13 +291,13 @@
         { cost: 1, levelUp: 1, speed: 3, id: 'customProficiency',
             namePattern: '^custom Proficiency'
         },
-        { cost: 2, levelUp: 2, speed: 1, id: 'generalProficiency',
+        { cost: 2, levelUp: 1, speed: 1, id: 'generalProficiency',
             namePattern: '^general Proficiency',
-            description: "+(Level) to all rolls for a Challenge Action category."
+            description: "+(Level+1) to all rolls for a Challenge Action category."
         },
         { cost: 1, levelUp: 1, speed: 1, id: 'specializedProficiency',
             namePattern: '^specialized Proficiency',
-            description: "+(Level) to all rolls for a specific Challenge Action."
+            description: "+(Level+1) to all rolls for a specific Challenge Action."
         },
         { cost: 1, levelUp: 1, speed: 1, id: 'asset',
             namePattern: '^asset',
@@ -1077,13 +1078,14 @@
                         getAttrs(skillFieldNames, function(skillValues) {
                             for(let i = 0; i < sidarray.length; i++) {
                                 let skillName = skillValues['repeating_skills_' + sidarray[i] + '_skillname'];
+                                let skillLevel = skillValues['repeating_skills_' + sidarray[i] + '_skilllevel'];
                                 if(!skillName) {
                                     skillName = 'customSkill';
                                 }
 
                                 switch(skillName) {
                                     case 'quickToAct':
-                                        init += 2;
+                                        init += skillLevel+1;
                                         break;
                                 }
                             }
@@ -2005,7 +2007,10 @@
                         case 'str':
                             range = 2 * modLevel;
                             break;
-                        case 'agi':
+                        case 'agi': // Updated per Tools - Season 4 it's 5*modLevel for Agi, instead of 4.
+                            if (level > 15) range = 5 * modLevel;
+                            else range = 4 * modLevel;
+                            break;
                         case 'spr':
                             range = 4 * modLevel;
                             break;
@@ -2024,6 +2029,7 @@
                     let blastCost = 0;
                     if(techStat == 'spr') {
                         blastCost = 2 * modLevel - 1;
+                        if (level >= 11 && modLevel > 1) blastCost--; // Tools of the Trade adds one more +1 discount for a level 2 or higher BR if in Season 3
                     } else {
                         blastCost = 2 * modLevel;
                     }
@@ -2053,6 +2059,9 @@
                             break;
                         case 'spr':
                             line++;
+                            if (level > 5) line++; // per Tools of the Trade, +1 per season.
+                            if (level > 10) line++;
+                            if (level > 15) line++;
                             break;
                     }
 
@@ -2070,7 +2079,7 @@
                         summary += 'Targets everything within radius ' + blastRadius + ' around a line of length ' + line + '. ';
                     } else {
                         summary += 'Targets in a line of length ' + line + '. ';
-                    }
+                    } 
                     totalModLevel += modLevel;
                     if(barrierFreebie) {
                         totalModLevel--;
@@ -2127,7 +2136,7 @@
                 } else if(mod.indexOf('smart area') == 0) {
                     summary += 'You can choose to omit any number of spaces from the target area. ';
                     if(techStat == 'mnd') {
-                        totalModLevel++;
+                        if (level < 16 ) totalModLevel++; // Free for Mind in Season 4
                     } else {
                         totalModLevel += 2;
                     }
@@ -2172,9 +2181,9 @@
                     }
                 } else if(mod.indexOf('piercing') == 0) {
                     if(techStat == 'str' || techStat == 'agi') {
-                        summary += 'Ignores Defense. ';
+                        summary += 'Ignores Defense and shields. ';
                     } else {
-                        summary += 'Ignores Resistance. ';
+                        summary += 'Ignores Resistance and shields. ';
                     }
                     if(hasSpecialAttack) {
                         warnings.push("Warning: Technique can't have multiple Special Attack modifiers.");
@@ -2207,7 +2216,7 @@
                     } else {
                         totalModLevel += 4;
                     }
-                } else if(mod.indexOf('aura') == 0) {
+                } else if(mod.indexOf('aura') == 0) { // Aura Strike
                     totalModLevel++;
                 } else if(mod.indexOf('damage shift') == 0) {
                     if(techStat == 'str' || techStat == 'agi') {
@@ -2242,7 +2251,7 @@
                     summary += '+' + destroy + ' Durability damage to objects. ';
                     totalModLevel += modLevel;
                 } else if(mod.indexOf('dexterous') == 0 ||
-                          mod.indexOf('dextrous') == 0) {
+                          mod.indexOf('dextrous') == 0) { // Dextrous Strike
                     totalModLevel++;
                 } else if(mod.indexOf('drop') == 0) {
                     summary += 'If target is flying, they fall and take ' + di + ' damage. ';
@@ -2288,6 +2297,9 @@
                     let distance = 1 + modLevel;
                     if(techStat == 'str') {
                         distance++;
+                        if (level > 5) distance++; // Per tools of the Trade, +1/Season
+                        if (level > 10) distance++;
+                        if (level > 15) distance++;
                     }
                     summary += 'On a hit, move the target up to ' + distance + ' spaces. ';
                     totalModLevel += modLevel;
@@ -2435,7 +2447,9 @@
                     } else {
                         limitSummary += 'Can only be used ' + ammo + ' times per scene. ';
                     }
-                    limitSt += 3 * limitLevel;
+                    //Tools of the Trade bumps the stamina value for Seasons 3/4
+                    if (level >= 11) limitSt += 4 * limitLevel;
+                    else limitSt += 3 * limitLevel;
                 } else if(limit.indexOf('companion') == 0) {
                     limitSummary += 'Only your Companion can use this Technique. ';
                     limitSt += 2;
@@ -2445,7 +2459,8 @@
                     } else {
                         limitSummary += 'Must wait for ' + limitLevel + ' turns before using again. ';
                     }
-                    limitSt += 2 * limitLevel;
+                    if (level >= 11) limitSt += 3 * limitLevel; // Tools of the Trade bumps bonus to 3/level in Season 3.
+                    else limitSt += 2 * limitLevel;
                 } else if(limit.indexOf('dark power') == 0) {
                     limitSummary += 'When you use this Technique, make a Malevolent Entity check. ';
                     limitSt += 10;
@@ -2469,10 +2484,12 @@
                     hasSkills = true;
                 } else if(limit.indexOf('initiative') == 0) {
                     limitSummary += 'Initiative reduced by ' + limitLevel + ' after using this Technique. ';
-                    limitSt += 3 * limitLevel;
+                    if (level >= 11) limitSt += 4 * limitLevel; // Tools of the Trade bumps bonus to 3/level in Season 3.
+                    else limitSt += 3 * limitLevel;
                 } else if(limit.indexOf('immobile') == 0) {
                     limitSummary += "Can't be used if you've already moved this turn. ";
-                    limitSt += 3;
+                    if (level >= 11) limitSt += 5;
+                    else limitSt += 3;
                 } else if(limit.indexOf('injury') == 0) {
                     let threshold = hp - Math.ceil(hp / 5) * limitLevel;
                     limitSummary += 'Your Health must be ' + threshold + ' or lower to use this Technique. ';
@@ -2504,10 +2521,12 @@
                     limitSt += 3;
                 } else if(limit.indexOf('reload') == 0) {
                     limitSummary += 'Must use a Support Action to reload before using again. ';
-                    limitSt += 4;
+                    if (level >= 11) limitSt += 6;
+                    else limitSt += 4;
                 } else if(limit.indexOf('sequence') == 0) {
                     limitSummary += 'Must use a specific other Technique before using this one. ';
-                    limitSt += 4;
+                    if (level >= 11) limitSt += 6;
+                    else limitSt += 4;
                 } else if(limit.indexOf('self') == 0) {
                     limitSummary += 'Can only target yourself. ';
                     limitSt++;
@@ -2534,7 +2553,8 @@
                 } else if(limit.indexOf('vitality') == 0) {
                     let threshold = Math.ceil(hp * 0.4);
                     limitSummary += "Can't be used if you are at or below " + threshold + ' Health. ';
-                    limitSt += 3 * limitLevel;
+                    if (level >= 11) limitSt += 4;
+                    else limitSt += 3;
                 } else if(limit.indexOf('valor') == 0) {
                     if(limit.indexOf('valor consumption') > -1) {
                         limitSummary += 'Valor is reduced by ' + limitLevel + ' after using (can go below 0). ';
@@ -2544,8 +2564,14 @@
                         limitSt += 2 * limitLevel;
                     }
                 } else if(limit.indexOf('clone') == 0) {
-                    limitSummary += 'You must have an active Clone to use this Technique. ';
-                    limitSt += 2;
+                    if (limitLevel = 1) {
+                        limitSummary += 'You must have an active Clone to use this Technique. ';
+                    }
+                    else { // Tools of the Trade makes this limit levelable.
+                        limitSummary += 'You must have ' + limitLevel + ' active Clones to use this Technique.';
+                    }
+                    if (level >= 11) limitSt += 3 * limitLevel; // Tools of the Trade: Cost Reduction increased in Season 3
+                    else limitSt += 2 * limitLevel;
                 } else if(limit.indexOf('node sacrifice') == 0) {
                     limitSummary += 'Must originate from an Attack Node, and the node is destroyed. ';
                     limitSt += 8;
@@ -3477,14 +3503,14 @@
                         <option disabled style="font-weight:bold" label="Season 1 Skills">
                             <option value="acceleration">Acceleration (5)</option>
                             <option value="analysis">Analysis (5)</option>
-                            <option value="asset">Asset (3)</option>
+                            <option value="asset">Asset (1/1)</option>
                             <option value="attackNode">Attack Node (5/2)</option>
                             <option value="balancedFighter">Balanced Fighter (8)</option>
                             <option value="blazingMight">Blazing Might (6/3)</option>
                             <option value="bounceBack">Bounce Back (6)</option>
                             <option value="bravado">Bravado (6/6)</option>
                             <option value="burningPassion">Burning Passion (5)</option>
-                            <option value="challengeTechnique">Challenge Technique (3)</option>
+                            <option value="challengeTechnique">Challenge Technique (1/1)</option>
                             <option value="combinationAttack">Combination Attack (6)</option>
                             <option value="companion">Companion (6/4)</option>
                             <option value="counterattack">Counterattack (6)</option>
@@ -3505,7 +3531,7 @@
                             <option value="fastCompanion">Fast Companion (2/1)</option>
                             <option value="fastHealing">Fast Healing (4)</option>
                             <option value="favorableInsight">Favorable Insight (3)</option>
-                            <option value="feint">Feint (6)</option>
+                            <option value="feint">Feint (6/3)</option>
                             <option value="fightingSpirit">Fighting Spirit (6/3)</option>
                             <option value="hardenedDefense">Hardened Defense (6/3)</option>
                             <option value="hardenedResistance">Hardened Resistance (6/3)</option>
@@ -3525,10 +3551,10 @@
                             <option value="overloadLimits">Overload Limits (6)</option>
                             <option value="passiveHealing">Passive Healing (4)</option> (6)
                             <option value="physicalAttacker">Physical Attacker (6/3)</option>
-                            <option value="proficiency">Proficiency (2)</option>
+                            <option value="proficiency">Proficiency (2/1)</option>
                             <option value="protector">Protector (5)</option>
                             <option value="provoke">Provoke (4/2)</option>
-                            <option value="quickToAct">Quick to Act (3)</option>
+                            <option value="quickToAct">Quick to Act (3/2)</option>
                             <option value="recharge">Recharge (5/3)</option>
                             <option value="recklessAttack">Reckless Attack (5/3)</option>
                             <option value="recovery">Recovery (3)</option>
@@ -3550,7 +3576,7 @@
                             <option value="unmovable">Unmovable (4/2)</option>
                             <option value="versatileFighter">Versatile Fighter (6/3)</option>
                         <option disabled style="font-weight:bold" label="Season 2 Skills">
-                            <option value="abundantCreation">Abundant Creation (5)</option>
+                            <option value="abundantCreation">Abundant Creation (5/3)</option>
                             <option value="afterimage">Afterimage (4)</option>
                             <option value="allyMount">Ally Mount (3/1)</option>
                             <option value="areaShield">Area Shield (4)</option>
@@ -3587,7 +3613,7 @@
                             <option value="shrugOff">Shrug Off (6)</option>
                             <option value="splitMove">Split Move (6)</option>
                             <option value="staminaTransference">Stamina Transference (6)</option>
-                            <option value="swiftStep">Swift Step (5/2)</option>
+                            <option value="swiftStep">Swift Step (4/1)</option>
                             <option value="tossingCompanion">Tossing Companion (3/1)</option>
                             <option value="transposition">Transposition (4)</option>
                             <option value="trustingCompanion">Trusting Companion (4)</option>
@@ -3899,7 +3925,7 @@
                 <div class="proficiency-upper">
                     <select class="proficiency-picker" name="attr_profname" selected="customProficiency">
                         <option value="customProficiency">Custom Proficiency</option>
-                        <option value="generalProficiency">General Proficiency (2/2, Slow)</option>
+                        <option value="generalProficiency">General Proficiency (2/1, Slow)</option>
                         <option value="specializedProficiency">Specialized Proficiency (1/1, Slow)</option>
                         <option value="asset">Asset (1/1, Slow)</option>
                         <option value="basicLanguage">Basic Language (1)</option>
