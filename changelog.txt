@@ -238,3 +238,8 @@ v1.9.3-Neko2 (9/16/2025):
 - New: Proficiencies options "Challenge Technique", "Favorable Insight", "Recovery", and "Favorable Success".
 - New: "Use" button on Proficiency functions.
 - Known Issue: Sometimes, the proficiency calculations will falsely assume a base cost 1 and levelup cost 1 regardless of the actual level.
+
+1.9.3-Neko3 (12/6/2025):
+- Multiple fixes I've forgotten honestly...
+- General Proficiency and Specialized Proficiency costs corrected
+- Integrates all changes from Tools of the Trade
